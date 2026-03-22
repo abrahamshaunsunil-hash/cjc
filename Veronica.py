@@ -10,10 +10,14 @@ import re
 from openai import OpenAI
 
 # Initialize DeepSeek client
-deepseek_client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com"
-)
+api_key = os.getenv("GEMINI_API_KEY")
+
+if not api_key:
+    raise EnvironmentError(
+        "GEMINI_API_KEY not found in environment variables"
+    )
+
+genai.configure(api_key=api_key)
 
 # Function to load the knowledge base from a JSON file
 def load_knowledge_base(file_path: str) -> dict:
@@ -108,7 +112,7 @@ def load_history(session_id: str, limit: int = 3):
 # --------------------
 # Main Gemini + RAG
 # --------------------
-def get_deepseek_response(user_question: str, session_id: str) -> str:
+def get_gemini_response(user_question: str, session_id: str) -> str:
     # 1) Encode user query
     user_emb = model_embed.encode(
         user_question,
@@ -135,40 +139,50 @@ def get_deepseek_response(user_question: str, session_id: str) -> str:
     # 2) Load chat history
     history = load_history(session_id, limit=3)
 
-    # Convert history → OpenAI format
-    messages = []
-
+    history_text = ""
     for msg in history:
-        role = "user" if msg["role"] == "user" else "assistant"
-        messages.append({
-            "role": role,
-            "content": msg["text"]
-        })
+        prefix = "User" if msg["role"] == "user" else "Veronica"
+        history_text += f"{prefix}: {msg['text']}\n"
 
-    # 3) Add system prompt
-    messages.insert(0, {
-        "role": "system",
-        "content": "You are Noah, the assistant for Christ Junior College."
-    })
-
-    # 4) Add current query with context
-    messages.append({
-        "role": "user",
-        "content": f"Context:\n{context}\n\nUser question: {user_question}"
-    })
+    # 3) Final prompt
+    final_prompt = (
+        "You are Noah, the assistant for Christ Junior College.\n\n"
+        "Context:\n"
+        f"{context}\n\n"
+        f"User question: {user_question}"
+    )
 
     try:
-        response = deepseek_client.chat.completions.create(
-            model="deepseek-chat",
-            messages=messages,
-            temperature=0.7
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            generation_config={
+                "temperature": 0.7,
+
+            }
         )
 
-        answer = response.choices[0].message.content.strip()
+        # Rebuild Gemini chat with stored history
+        gemini_history = [
+            {
+                "role": "user" if m["role"] == "user" else "model",
+                "parts": [m["text"]],
+            }
+            for m in history
+        ]
+
+        chat = model.start_chat(history=gemini_history)
+        response = chat.send_message(final_prompt)
+
+        answer = (
+            response.text.strip()
+            if response and getattr(response, "text", None)
+            else "Empty response from Gemini."
+        )
+
         return answer
 
     except Exception as e:
-        return f"Error calling DeepSeek: {e}"
+        return f"Error calling Gemini: {e}"
 
 
 
@@ -200,7 +214,7 @@ def get_veronica_response(user_question: str, knowledge_base: Dict, session_id: 
         answer = get_answer_for_question(best_match, knowledge_base) or "No answer found."
     else:
         # If no match is found in the knowledge base, ask Gemini to generate a response
-        answer = get_deepseek_response(user_question, session_id)
+        answer = get_gemini_response(user_question, session_id)
 
     # Save this turn in Redis so future messages have context
     save_message(session_id, "user", user_question)
