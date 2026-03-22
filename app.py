@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory, make_response, send_file
-from Veronica import get_veronica_response, load_knowledge_base, save_knowledge_base, get_gemini_response
+from Veronica import get_veronica_response, load_knowledge_base, save_knowledge_base
 from flask_cors import CORS
 import os
 import google.generativeai as genai
@@ -31,14 +31,7 @@ CORS(app, resources={r"/predict": {"origins": list(ALLOWED_ORIGINS)}}, methods=[
 knowledge_base = load_knowledge_base('knowledge_base.json')
 
 # Configure the Gemini model from environment variable (do not hardcode keys)
-api_key = os.getenv("GEMINI_API_KEY")
 
-if not api_key:
-    raise EnvironmentError(
-        "GEMINI_API_KEY not found in environment variables"
-    )
-
-genai.configure(api_key=api_key)
 
 # Optional: helper to call Gemini if needed (kept from your code)
 DATABASE_URL = os.environ.get('DATABASE_URL')  # expected to be provided in environment
