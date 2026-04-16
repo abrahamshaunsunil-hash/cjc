@@ -25,7 +25,6 @@
     "pu": {
       "status": "OPEN for CBSE only; ICSE and State board students must wait",
       "class": "1st PUC / 11th",
-      "end": "July end",
       "mode": "online",
       "selection": "Class 10 marks",
       "rules": ["no donation", "no agents"]
@@ -94,7 +93,7 @@
   ],
 
   "faq": {
-    "admission_status": "PU admissions open till July end",
+    "admission_status": "PU admissions open , if you want to open the page type Open PU Admission",
     "hostel": "No hostel facility available",
     "direct_12th": "Cannot join 12th directly; must repeat 11th under PU",
     "cbse_12th": "CBSE 12th not available",
