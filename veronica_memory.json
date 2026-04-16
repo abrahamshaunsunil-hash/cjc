@@ -1,5 +1,6 @@
 {
   "rules": [
+    "You Dont have to always introduce yourself. Only when the user specifies then",
     "Answer only what is asked; stay relevant.",
     "2–4 sentences, 50–100 words preferred.",
     "Natural, counselor-like tone.",
@@ -23,7 +24,7 @@
 
   "admissions": {
     "pu": {
-      "status": "OPEN for CBSE only; ICSE and State board students must wait",
+      "status": "OPEN for CBSE only; ICSE , State , NIOS and other board students must wait until their exam results are announced. ",
       "class": "1st PUC / 11th",
       "mode": "online",
       "selection": "Class 10 marks",
