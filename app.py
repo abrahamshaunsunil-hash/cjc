@@ -185,7 +185,7 @@ def predict():
             "pu academics": ("Open PU Academics", cj_base + "academics.php"),
             "faculty": ("Open Faculty", cj_base + "faculty.php"),
             "pu programs": ("Open PU Programs", cj_base + "pre-university-course.php#academic-programs"),
-            "admission pu": ("Open PU Admission", "https://kp.christjuniorcollege.in/CJC/cjcUniqueIdRegistration.do?method=initOnlineApplicationRegistration&pt=1"),
+            "pu admission": ("Open PU Admission", "https://kp.christjuniorcollege.in/CJC/cjcUniqueIdRegistration.do?method=initOnlineApplicationRegistration&pt=1"),
             "enquiry pu": ("Open PU Admission Enquiry", cj_base + "admission-enquiry-pu.php"),
             "pu faqs": ("Open PU FAQs", cj_base + "faqs-pu.php"),
             "student life": ("Open Student Life", cj_base + "student-life.php"),
@@ -209,7 +209,7 @@ def predict():
             query = " ".join(words[1:]).strip()
 
             for key, (label, url_map) in mapping.items():
-                if key in query:
+                if all(word in query for word in key.split()):
                     # log user and bot
                     try:
                         db_insert_message(session_id, 'user', text, reply_id=None, url=url, user_agent=user_agent)
