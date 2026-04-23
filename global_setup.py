@@ -195,8 +195,10 @@ def get_response(query, data, chunks, chunk_embs):
             return format_response(text, data)
 
     # ---- ADMISSION ----
-    if "admission" in q:
-        return format_response(data["faq"]["admission_status"], data)
+    if "admission" in q or "1st puc" in q or "puc open" in q:
+        pu_status = data["admissions"]["pu"]["status"]
+        faq_note = data["faq"]["admission_status"]
+        return format_response(f"{pu_status}. {faq_note}", data)
 
     # ---- HOSTEL ----
     if "hostel" in q:
