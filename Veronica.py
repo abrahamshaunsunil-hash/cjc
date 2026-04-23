@@ -200,9 +200,16 @@ def handle_stream_query(query, data):
     mappings = data.get("mappings", {})
     fees = data.get("fees", {})
 
+    results = []
+
+    # ✅ 1. DIRECT STREAM MATCH (FIXES YOUR BUG)
+    for stream in fees:
+        if stream.lower() in q:
+            return f"{stream} – ₹{fees[stream]}"
+
+    # ✅ 2. CATEGORY MATCH (arts, science, commerce)
     for key, streams in mappings.items():
         if key in q:
-            results = []
             for s in streams:
                 if s in fees:
                     results.append(f"{s} – ₹{fees[s]}")
@@ -224,12 +231,13 @@ def get_veronica_response(user_question: str, knowledge_base: Dict, session_id: 
         return answer
 
     # 🔥 NEW: Handle stream/fees BEFORE anything else
-    stream_answer = handle_stream_query(user_question, DATA)
-    if stream_answer:
-        answer = stream_answer
-        save_message(session_id, "user", user_question)
-        save_message(session_id, "assistant", answer)
-        return answer
+    if "fee" in user_question.lower() or "fees" in user_question.lower():
+        stream_answer = handle_stream_query(user_question, DATA)
+        if stream_answer:
+            answer = stream_answer
+            save_message(session_id, "user", user_question)
+            save_message(session_id, "assistant", answer)
+            return answer
 
     # Try FAQ/knowledge base first
     best_match = find_best_match(
