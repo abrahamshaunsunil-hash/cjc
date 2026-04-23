@@ -134,7 +134,10 @@ def get_gemini_response(user_question: str, session_id: str) -> str:
     ]
 
     MAX_CONTEXT_CHARS = 2000
-    context = "\n".join(retrieved_chunks).strip()[:MAX_CONTEXT_CHARS]
+    context = "\n".join(
+        c["text"] if isinstance(c, dict) else str(c)
+        for c in retrieved_chunks
+    ).strip()[:MAX_CONTEXT_CHARS]
 
     # 2) Load chat history
     history = load_history(session_id, limit=3)
