@@ -26,7 +26,7 @@
   },
   "admissions": {
     "pu": {
-      "status": "OPEN for CBSE only; ICSE, State, NIOS and other board students must wait until their exam results are announced.",
+      "status": "OPEN for CBSE and STATE (SSLC)only; ICSE, NIOS and other board students must wait until their exam results are announced.",
       "class": "1st PUC / 11th",
       "mode": "online",
       "selection": "Class 10 marks",
@@ -112,7 +112,7 @@
     "Social Science"
   ],
   "faq": {
-    "admission_status": "PU admissions open, if you want to open the page type Open PU Admission",
+    "admission_status": "PU admissions are OPEN for CBSE and STATE (SSLC) students. ICSE,  NIOS and other board students must wait until their results are announced.",
     "hostel": "No hostel facility available",
     "direct_12th": "Cannot join 12th directly; must repeat 11th under PU",
     "cbse_12th": "CBSE 12th not available",
