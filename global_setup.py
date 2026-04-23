@@ -52,47 +52,40 @@ def deduplicate_chunks(chunks):
 
 
 # -----------------------------
-# LOAD + EMBEDDING PRECOMPUTE
+# LOAD MEMORY JSON
 # -----------------------------
-def load_memory_and_precompute(
-    memory_path="veronica_memory.json",
-    emb_path="chunk_embs.npy",
-    force_recompute=False
-):
+def load_json(memory_path="veronica_memory.json"):
     mem_file = Path(memory_path)
 
     if not mem_file.exists():
         raise FileNotFoundError(f"{memory_path} not found")
 
-    data = json.loads(mem_file.read_text(encoding="utf-8"))
-
-    # Step 1: Flatten
-    chunks = flatten_json(data)
-
-    # Step 2: Deduplicate
-    chunks = deduplicate_chunks(chunks)
-
-    emb_file = Path(emb_path)
-
-    # Step 3: Load or compute embeddings
-    if emb_file.exists() and not force_recompute:
-        chunk_embs = np.load(emb_path)
-    else:
-        texts = [c["text"] for c in chunks]
-
-        chunk_embs = model_embed.encode(
-            texts,
-            convert_to_numpy=True,
-            normalize_embeddings=True
-        )
-
-        np.save(emb_path, chunk_embs)
-
-    return chunks, chunk_embs
+    return json.loads(mem_file.read_text(encoding="utf-8"))
 
 
 # -----------------------------
-# SEARCH FUNCTION (CORE RETRIEVAL)
+# EMBEDDINGS
+# -----------------------------
+def compute_embeddings(chunks, emb_path="chunk_embs.npy", force_recompute=False):
+    emb_file = Path(emb_path)
+
+    if emb_file.exists() and not force_recompute:
+        return np.load(emb_path)
+
+    texts = [c["text"] for c in chunks]
+
+    embs = model_embed.encode(
+        texts,
+        convert_to_numpy=True,
+        normalize_embeddings=True
+    )
+
+    np.save(emb_path, embs)
+    return embs
+
+
+# -----------------------------
+# SEARCH (SEMANTIC)
 # -----------------------------
 def search_memory(query, chunks, chunk_embs, top_k=5):
     query_emb = model_embed.encode(
@@ -101,23 +94,74 @@ def search_memory(query, chunks, chunk_embs, top_k=5):
         normalize_embeddings=True
     )[0]
 
-    # cosine similarity (dot product because normalized)
     scores = np.dot(chunk_embs, query_emb)
-
     top_indices = np.argsort(scores)[-top_k:][::-1]
 
-    results = []
-    for i in top_indices:
-        results.append({
+    return [
+        {
             "text": chunks[i]["text"],
             "path": chunks[i]["path"],
             "score": float(scores[i])
-        })
-
-    return results
+        }
+        for i in top_indices
+    ]
 
 
 # -----------------------------
-# STARTUP LOAD
+# 🔥 MAPPING LOGIC (KEY FIX)
 # -----------------------------
-CHUNKS, CHUNK_EMBS = load_memory_and_precompute()
+def resolve_stream_mapping(query, mappings):
+    query = query.lower()
+
+    for key, streams in mappings.items():
+        if key in query:
+            return streams
+
+    return None
+
+
+# -----------------------------
+# 💰 FEES RESPONSE (DETERMINISTIC)
+# -----------------------------
+def get_stream_fees(query, data):
+    mappings = data.get("mappings", {})
+    fees = data.get("fees", {})
+
+    mapped_streams = resolve_stream_mapping(query, mappings)
+
+    if not mapped_streams:
+        return None
+
+    results = []
+    for stream in mapped_streams:
+        if stream in fees:
+            results.append(f"{stream}: ₹{fees[stream]}")
+
+    return results if results else None
+
+
+# -----------------------------
+# 🧠 MAIN RESPONSE ROUTER
+# -----------------------------
+def get_response(query, data, chunks, chunk_embs):
+    query_lower = query.lower()
+
+    # 1. HANDLE FEES FIRST (priority logic)
+    if "fee" in query_lower or "fees" in query_lower:
+        fee_result = get_stream_fees(query, data)
+        if fee_result:
+            return "\n".join(fee_result)
+
+    # 2. FALLBACK → SEMANTIC SEARCH
+    results = search_memory(query, chunks, chunk_embs)
+
+    return "\n".join([r["text"] for r in results])
+
+
+# -----------------------------
+# STARTUP
+# -----------------------------
+DATA = load_json()
+
+CHUNKS = deduplicate_chunks(flatten_json(DATA))
+CHUNK_EMBS = compute_embeddings(CHUNKS)
