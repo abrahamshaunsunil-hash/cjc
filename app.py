@@ -337,4 +337,5 @@ def save():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    response = get_veronica_response(user_question, knowledge_base, "local_test")
     app.run(host='0.0.0.0', port=port, debug=True)
