@@ -10,7 +10,19 @@ model_embed = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 # -----------------------------
-# FLATTEN JSON → STRUCTURED CHUNKS
+# LOAD JSON
+# -----------------------------
+def load_json(memory_path="veronica_memory.json"):
+    mem_file = Path(memory_path)
+
+    if not mem_file.exists():
+        raise FileNotFoundError(f"{memory_path} not found")
+
+    return json.loads(mem_file.read_text(encoding="utf-8"))
+
+
+# -----------------------------
+# FLATTEN JSON
 # -----------------------------
 def flatten_json(data):
     chunks = []
@@ -23,8 +35,7 @@ def flatten_json(data):
 
         elif isinstance(obj, list):
             for i, item in enumerate(obj):
-                new_path = f"{path}[{i}]"
-                recurse(item, new_path)
+                recurse(item, f"{path}[{i}]")
 
         else:
             chunks.append({
@@ -37,7 +48,7 @@ def flatten_json(data):
 
 
 # -----------------------------
-# REMOVE DUPLICATES
+# DEDUPLICATE
 # -----------------------------
 def deduplicate_chunks(chunks):
     seen = set()
@@ -49,18 +60,6 @@ def deduplicate_chunks(chunks):
             unique.append(c)
 
     return unique
-
-
-# -----------------------------
-# LOAD MEMORY JSON
-# -----------------------------
-def load_json(memory_path="veronica_memory.json"):
-    mem_file = Path(memory_path)
-
-    if not mem_file.exists():
-        raise FileNotFoundError(f"{memory_path} not found")
-
-    return json.loads(mem_file.read_text(encoding="utf-8"))
 
 
 # -----------------------------
@@ -85,7 +84,7 @@ def compute_embeddings(chunks, emb_path="chunk_embs.npy", force_recompute=False)
 
 
 # -----------------------------
-# SEARCH (SEMANTIC)
+# SEARCH
 # -----------------------------
 def search_memory(query, chunks, chunk_embs, top_k=5):
     query_emb = model_embed.encode(
@@ -97,18 +96,11 @@ def search_memory(query, chunks, chunk_embs, top_k=5):
     scores = np.dot(chunk_embs, query_emb)
     top_indices = np.argsort(scores)[-top_k:][::-1]
 
-    return [
-        {
-            "text": chunks[i]["text"],
-            "path": chunks[i]["path"],
-            "score": float(scores[i])
-        }
-        for i in top_indices
-    ]
+    return [chunks[i]["text"] for i in top_indices]
 
 
 # -----------------------------
-# 🔥 MAPPING LOGIC (KEY FIX)
+# 🔥 MAPPING
 # -----------------------------
 def resolve_stream_mapping(query, mappings):
     query = query.lower()
@@ -121,41 +113,77 @@ def resolve_stream_mapping(query, mappings):
 
 
 # -----------------------------
-# 💰 FEES RESPONSE (DETERMINISTIC)
+# 💰 FEES LOGIC
 # -----------------------------
 def get_stream_fees(query, data):
     mappings = data.get("mappings", {})
     fees = data.get("fees", {})
 
-    mapped_streams = resolve_stream_mapping(query, mappings)
+    streams = resolve_stream_mapping(query, mappings)
 
-    if not mapped_streams:
+    if not streams:
         return None
 
     results = []
-    for stream in mapped_streams:
-        if stream in fees:
-            results.append(f"{stream}: ₹{fees[stream]}")
+    for s in streams:
+        if s in fees:
+            results.append(f"{s} costs ₹{fees[s]} per year")
 
     return results if results else None
 
 
 # -----------------------------
-# 🧠 MAIN RESPONSE ROUTER
+# 🧠 RESPONSE FORMATTER (RULES APPLIED)
+# -----------------------------
+def format_response(text, data):
+    if not text:
+        return ""
+
+    # Use "we" tone
+    text = text.replace("The college", "We").replace("the college", "we")
+
+    # Split into sentences
+    sentences = text.split(".")
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    # Keep 2–4 sentences
+    if len(sentences) > 4:
+        sentences = sentences[:4]
+
+    formatted = ". ".join(sentences)
+
+    if not formatted.endswith("."):
+        formatted += "."
+
+    return formatted
+
+
+# -----------------------------
+# 🚀 MAIN RESPONSE FUNCTION
 # -----------------------------
 def get_response(query, data, chunks, chunk_embs):
-    query_lower = query.lower()
+    q = query.lower()
 
-    # 1. HANDLE FEES FIRST (priority logic)
-    if "fee" in query_lower or "fees" in query_lower:
+    # ---- FEES PRIORITY ----
+    if "fee" in q or "fees" in q:
         fee_result = get_stream_fees(query, data)
         if fee_result:
-            return "\n".join(fee_result)
+            text = ". ".join(fee_result)
+            return format_response(text, data)
 
-    # 2. FALLBACK → SEMANTIC SEARCH
+    # ---- ADMISSION ----
+    if "admission" in q:
+        return format_response(data["faq"]["admission_status"], data)
+
+    # ---- HOSTEL ----
+    if "hostel" in q:
+        return format_response(data["faq"]["hostel"], data)
+
+    # ---- FALLBACK SEARCH ----
     results = search_memory(query, chunks, chunk_embs)
+    text = " ".join(results)
 
-    return "\n".join([r["text"] for r in results])
+    return format_response(text, data)
 
 
 # -----------------------------
